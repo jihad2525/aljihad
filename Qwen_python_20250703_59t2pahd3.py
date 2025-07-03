@@ -1,78 +1,117 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
 
 # Page config
-st.set_page_config(page_title="💧 Water Potability Checker", layout="centered")
+st.set_page_config(page_title="💧 Water Potability Predictor", layout="wide")
 
-# Title and description
-st.title("💧 Water Potability Checker")
-st.markdown("""
-This app determines whether water is **potable (safe to drink)** based on its chemical properties.
-It uses **rule-based criteria**, especially focusing on **pH**, which should be between **6.5 and 8.5** for safe drinking water.
-""")
+# Title
+st.title("💧 Water Potability Prediction using Machine Learning")
+st.markdown("This app predicts whether water is safe to drink based on chemical properties, especially pH.")
+
+# Load dataset
+@st.cache_data
+def load_data():
+    try:
+        df = pd.read_csv("water_potability (1).csv")
+        return df
+    except FileNotFoundError:
+        st.error("❌ File not found: `water_potability (1).csv`. Please make sure it's uploaded.")
+        st.stop()
+
+df = load_data()
+
+# Show dataset preview
+if st.checkbox("📊 Show Dataset Preview"):
+    st.subheader("Raw Data")
+    st.write(df.head(10))
 
 # Sidebar info
 with st.sidebar:
     st.header("📘 About")
     st.markdown("""
-    This app checks if water is safe to drink using WHO standards:
+    - This app uses a **Random Forest Classifier**
+    - Dataset source: `water_potability (1).csv`
     
-    | Parameter        | Acceptable Range         |
-    |------------------|--------------------------|
-    | pH               | **6.5 – 8.5** (Neutral)  |
-    | Hardness         | < 200 mg/L               |
-    | Turbidity        | < 5 NTU                  |
-    | Chloramines      | < 4 ppm                  |
-    | Sulfate          | < 250 mg/L               |
+    💡 WHO Standard for pH: **6.5 – 8.5**  
+    Outside this range, water is likely unsafe to drink.
     """)
+
+# Preprocessing
+X = df.drop(columns=["Potability"])
+y = df["Potability"]
+
+# Fill missing values
+X.fillna(X.mean(), inplace=True)
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Evaluate model
+y_pred = model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+
+# Show model performance
+st.subheader("🧠 Model Performance")
+st.write(f"Model Accuracy: **{accuracy:.2%}**")
+
+# Feature importance
+st.markdown("#### 🔍 Top Features Affecting Potability")
+importances = model.feature_importances_
+feature_df = pd.DataFrame({"Feature": X.columns, "Importance": importances})
+feature_df = feature_df.sort_values(by="Importance", ascending=False)
+st.bar_chart(feature_df.set_index("Feature"))
 
 # Input form
 st.subheader("🛠️ Enter Water Sample Properties")
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     ph = st.slider("pH Level", min_value=0.0, max_value=14.0, value=7.0, step=0.1)
-    hardness = st.number_input("Hardness (mg/L)", min_value=0.0, value=150.0)
-    turbidity = st.number_input("Turbidity (NTU)", min_value=0.0, value=3.0)
-    
+    hardness = st.number_input("Hardness", min_value=0.0, value=float(df['Hardness'].mean()))
+    solids = st.number_input("Solids", min_value=0.0, value=float(df['Solids'].mean()))
+
 with col2:
-    chloramines = st.number_input("Chloramines (ppm)", min_value=0.0, value=2.0)
-    sulfate = st.number_input("Sulfate (mg/L)", min_value=0.0, value=200.0)
+    chloramines = st.number_input("Chloramines", min_value=0.0, value=float(df['Chloramines'].mean()))
+    sulfate = st.number_input("Sulfate", min_value=0.0, value=float(df['Sulfate'].mean()))
+    conductivity = st.number_input("Conductivity", min_value=0.0, value=float(df['Conductivity'].mean()))
 
-# Evaluation logic
-is_potable = True
-reasons = []
+with col3:
+    organic_carbon = st.number_input("Organic Carbon", min_value=0.0, value=float(df['Organic_carbon'].mean()))
+    trihalomethanes = st.number_input("Trihalomethanes", min_value=0.0, value=float(df['Trihalomethanes'].mean()))
+    turbidity = st.number_input("Turbidity", min_value=0.0, value=float(df['Turbidity'].mean()))
 
-if not (6.5 <= ph <= 8.5):
-    is_potable = False
-    reasons.append(f"🔴 pH ({ph:.2f}) out of safe range (6.5–8.5)")
+# Prepare input
+input_data = pd.DataFrame({
+    'ph': [ph],
+    'Hardness': [hardness],
+    'Solids': [solids],
+    'Chloramines': [chloramines],
+    'Sulfate': [sulfate],
+    'Conductivity': [conductivity],
+    'Organic_carbon': [organic_carbon],
+    'Trihalomethanes': [trihalomethanes],
+    'Turbidity': [turbidity]
+})
 
-if hardness > 200:
-    is_potable = False
-    reasons.append(f"🔴 Hardness ({hardness} mg/L) too high (>200 mg/L)")
+# Make prediction
+prediction = model.predict(input_data)[0]
+probability = model.predict_proba(input_data)[0][1]
 
-if turbidity > 5:
-    is_potable = False
-    reasons.append(f"🔴 Turbidity ({turbidity} NTU) too high (>5 NTU)")
-
-if chloramines > 4:
-    is_potable = False
-    reasons.append(f"🔴 Chloramines ({chloramines} ppm) too high (>4 ppm)")
-
-if sulfate > 250:
-    is_potable = False
-    reasons.append(f"🔴 Sulfate ({sulfate} mg/L) too high (>250 mg/L)")
-
-# Display result
-st.subheader("✅ Final Assessment")
-
-if is_potable:
-    st.success("✔️ This water sample is **potable** (safe to drink).")
+# Result display
+st.subheader("✅ Prediction Result")
+if prediction == 1:
+    st.success(f"✔️ This water sample is likely **potable** with {probability:.2%} confidence.")
 else:
-    st.error("✘ This water sample is **not potable** (unsafe to drink).")
-    st.markdown("#### Reasons:")
-    for reason in reasons:
-        st.markdown(f"- {reason}")
+    st.error(f"✘ This water sample is likely **not potable** with {(1 - probability):.2%} confidence.")
 
 # pH interpretation
 st.info(f"""
@@ -83,11 +122,3 @@ Your input pH is **{ph:.2f}**.
 - 🟢 6.5 – 8.5 → Neutral / Safe for drinking  
 - 🔵 Above 8.5 → Alkaline / May be unsafe
 """)
-
-# Optional: Show tips
-if st.checkbox("💡 Show Tips for Improving Water Quality"):
-    st.markdown("""
-    - Use filtration systems to reduce hardness and turbidity
-    - Monitor pH regularly and use neutralizers if needed
-    - Test for contaminants like sulfates and chlorine compounds
-    """)
