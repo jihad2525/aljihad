@@ -10,16 +10,19 @@ st.set_page_config(page_title="💧 Water Potability Predictor", layout="wide")
 
 # Title
 st.title("💧 Water Potability Prediction using Machine Learning")
-st.markdown("This app predicts whether water is safe to drink based on chemical properties, especially pH.")
+st.markdown("""
+This app predicts whether water is safe to drink based on chemical properties, especially pH.
+All input fields are now sliders for better interactivity.
+""")
 
 # Load dataset
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_csv("water_potability (1).csv")
+        df = pd.read_csv("water_potability.csv")
         return df
     except FileNotFoundError:
-        st.error("❌ File not found: `water_potability (1).csv`. Please make sure it's uploaded.")
+        st.error("❌ File not found: `water_potability.csv`. Please make sure it's uploaded.")
         st.stop()
 
 df = load_data()
@@ -34,7 +37,7 @@ with st.sidebar:
     st.header("📘 About")
     st.markdown("""
     - This app uses a **Random Forest Classifier**
-    - Dataset source: `water_potability (1).csv`
+    - Dataset source: `water_potability.csv`
     
     💡 WHO Standard for pH: **6.5 – 8.5**  
     Outside this range, water is likely unsafe to drink.
@@ -72,24 +75,30 @@ st.bar_chart(feature_df.set_index("Feature"))
 # Input form
 st.subheader("🛠️ Enter Water Sample Properties")
 
+# Get min and max values from the dataset for each column
+min_values = df.drop(columns=["Potability"]).min()
+max_values = df.drop(columns=["Potability"]).max()
+
+# Create sliders for all features
+input_data = {}
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    ph = st.slider("pH Level", min_value=0.0, max_value=14.0, value=7.0, step=0.1)
-    hardness = st.number_input("Hardness", min_value=0.0, value=float(df['Hardness'].mean()))
-    solids = st.number_input("Solids", min_value=0.0, value=float(df['Solids'].mean()))
+    ph = st.slider("pH Level", min_value=min_values["ph"], max_value=max_values["ph"], value=df["ph"].mean())
+    hardness = st.slider("Hardness", min_value=min_values["Hardness"], max_value=max_values["Hardness"], value=df["Hardness"].mean())
+    solids = st.slider("Solids", min_value=min_values["Solids"], max_value=max_values["Solids"], value=df["Solids"].mean())
 
 with col2:
-    chloramines = st.number_input("Chloramines", min_value=0.0, value=float(df['Chloramines'].mean()))
-    sulfate = st.number_input("Sulfate", min_value=0.0, value=float(df['Sulfate'].mean()))
-    conductivity = st.number_input("Conductivity", min_value=0.0, value=float(df['Conductivity'].mean()))
+    chloramines = st.slider("Chloramines", min_value=min_values["Chloramines"], max_value=max_values["Chloramines"], value=df["Chloramines"].mean())
+    sulfate = st.slider("Sulfate", min_value=min_values["Sulfate"], max_value=max_values["Sulfate"], value=df["Sulfate"].mean())
+    conductivity = st.slider("Conductivity", min_value=min_values["Conductivity"], max_value=max_values["Conductivity"], value=df["Conductivity"].mean())
 
 with col3:
-    organic_carbon = st.number_input("Organic Carbon", min_value=0.0, value=float(df['Organic_carbon'].mean()))
-    trihalomethanes = st.number_input("Trihalomethanes", min_value=0.0, value=float(df['Trihalomethanes'].mean()))
-    turbidity = st.number_input("Turbidity", min_value=0.0, value=float(df['Turbidity'].mean()))
+    organic_carbon = st.slider("Organic Carbon", min_value=min_values["Organic_carbon"], max_value=max_values["Organic_carbon"], value=df["Organic_carbon"].mean())
+    trihalomethanes = st.slider("Trihalomethanes", min_value=min_values["Trihalomethanes"], max_value=max_values["Trihalomethanes"], value=df["Trihalomethanes"].mean())
+    turbidity = st.slider("Turbidity", min_value=min_values["Turbidity"], max_value=max_values["Turbidity"], value=df["Turbidity"].mean())
 
-# Prepare input
+# Prepare input data
 input_data = pd.DataFrame({
     'ph': [ph],
     'Hardness': [hardness],
